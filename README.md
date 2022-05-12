@@ -1,5 +1,5 @@
-# Migration of existing Sitefintiy media content to DAM - Frtontify Sample
-This repository contains a sample code to demonstrate how to migrate media content from existing libraries in Sitefinity CSM to a DAM provider.
+# Migration of existing Sitefintiy media content to DAM - Frontify Sample
+This repository contains a sample code to demonstrate how to migrate media content from existing libraries in Sitefinity CMS to a DAM provider.
 The sample implementation is for Frontify but it could be used as reference on how to migrate items to any DAM provider integrated with Sitefinity.
 
 Migration of existing media content to a DAM provider will change the actual storage of the files. Instead stored and managed by Sitefinity they will be managed by the digital assets management system. During the process of migration, the existing media content items will be moved to a new library in Sitefinity, and the files will be moved to the DAM provider. The IDs of the items will remain unchanged so existing relations between the media items and any other content will be preserved.
@@ -14,7 +14,7 @@ The migration itself consists of two main pillars:
 > In this repository we have prepared a sample implementation for Frontify - **FrontifyUploader** class. If your DAM is Frontify you could use this implementation or substitute it with your own.
 
 To start a migration all you have to do is to call **DamMigtator**'s class static method _StartMigrationTask_.
-It accepts five parameters:
+It accepts four parameters:
 1. _uploader_ - An instance of a class which implements **IDamUploader** interface.
 2. _libraryType_ - The type of the library which media items will be migrated.
 3. _libraryId_ - The ID of the library which media items will be migrated.
@@ -40,7 +40,7 @@ Here is a sample of migrating a library:
 ```
 
 _StartMigrationTask_ method will schedule a task to execute the migration and will return the ID of the task.
-The task will appear in the in media management screens - Images, Documents and Videos, and it's progress can be monitored there.
+The task will appear in the media management screens - Images, Documents and Videos, and it's progress can be monitored there.
 The task will also be listed in Scheduled Tasks screen.
 
 When the task completes a detailed trace log will be available in the logs folder. In case the task has failed to move any of the items they will remain in the source folder, and you will be able to run the task again by clicking "Retry".
