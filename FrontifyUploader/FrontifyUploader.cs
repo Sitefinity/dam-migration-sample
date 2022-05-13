@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json.Linq;
 using Telerik.Sitefinity.Libraries.DamMigration;
@@ -57,15 +58,15 @@ namespace SitefinityWebApp.Tests.DamMigration
             return result;
         }
 
-        public DamMedia Upload(Guid mediaContentId, CultureInfo info, string provider)
+        public DamMedia Upload(Guid mediaContentId, CultureInfo culture, string provider)
         {
-            using (var cultureRegion = new CultureRegion(info))
+            using (var cultureRegion = new CultureRegion(culture))
             {
                 var librariesManager = LibrariesManager.GetManager(provider);
                 var mediaContent = librariesManager.GetMediaItem(mediaContentId);
 
                 // Frontify: Chunk size in bytes. Must be between 5MB and 1GB.
-                int chunkSizeToUpload = 104857600; // 100 mb
+                int chunkSizeToUpload = 10485760; // 10 mb
                 var fileDataChunks = this.DownloadMediaFile(librariesManager, mediaContent, chunkSizeToUpload);
                 var fileName = mediaContent.FilePath.Split('/').LastOrDefault();
 
@@ -79,7 +80,10 @@ namespace SitefinityWebApp.Tests.DamMigration
                 this.WaitFrontifyToProcessRequest();
 
                 // 2.Upload binary file content
-                this.UploadFileChunks(fileName, uploadFileResult.ChunksUrls, fileDataChunks);
+                if (!this.UploadFileChunks(fileName, uploadFileResult.ChunksUrls, fileDataChunks).Result)
+                {
+                    return new DamMedia() { ErrorMessage = $"Error uploading file: {fileName}." };
+                }
 
                 this.WaitFrontifyToProcessRequest();
 
@@ -227,10 +231,10 @@ namespace SitefinityWebApp.Tests.DamMigration
         {
             GetAssetResult result = new GetAssetResult();
 
-            /// File is being processed by Frontify. We need to wait for the processing to complete in order to get the created dasset.
-            /// As files are uploaed on chunks which are then processed fo creating the asset we are waiting at most 5 minutes per chunk
+            /// File is being processed by Frontify. We need to wait for the processing to complete in order to get the created asset.
+            /// As files are uploaded on chunks which are then processed for creating the asset we are waiting at most 5 minutes per chunk
             /// if asset is not ready until then we are considering that its upload have failed
-            DateTime waitUntil = DateTime.UtcNow.AddMinutes(chunksCount * 5);
+            DateTime waitUntil = DateTime.UtcNow.AddMinutes(chunksCount * 10);
             while (DateTime.UtcNow < waitUntil)
             {
                 string getAssetByIdQuery = this.GetAssetByIdQuery(assetId, mediaContent);
@@ -313,23 +317,40 @@ namespace SitefinityWebApp.Tests.DamMigration
             return result;
         }
 
-        private void UploadFileChunks(string fileName, string[] urls, List<byte[]> fileDataChunks)
+        private async Task<bool> UploadFileChunks(string fileName, string[] urls, List<byte[]> fileDataChunks)
         {
             string mimeMapping = MimeMapping.GetMimeMapping(fileName);
-            for (int i = 0; i < urls.Length; i++)
+
+            var semaphore = new SemaphoreSlim(5);
+            var tasks = urls.Select(async (url, i) =>
             {
-                this.UploadChunk(urls[i], mimeMapping, fileDataChunks[i]);
-            }
+                await semaphore.WaitAsync();
+                try
+                {
+                    return await this.UploadChunk(url, mimeMapping, fileDataChunks[i]);
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+            return tasks.All(t => t.Result);
         }
 
-        private bool UploadChunk(string createdFrontifyFilePath, string mimeMapping, byte[] fileData)
+        private async Task<bool> UploadChunk(string createdFrontifyFilePath, string mimeMapping, byte[] fileData)
         {
             using (var httpClient = new HttpClient())
             {
                 var byteArrayContent = new ByteArrayContent(fileData);
                 byteArrayContent.Headers.ContentType = new MediaTypeHeaderValue(mimeMapping);
 
-                var response = httpClient.PutAsync(createdFrontifyFilePath, byteArrayContent).Result;
+                var response = await httpClient.PutAsync(createdFrontifyFilePath, byteArrayContent);
                 return response.IsSuccessStatusCode;
             }
         }
