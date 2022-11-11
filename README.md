@@ -1,4 +1,8 @@
 # Migration of existing Sitefinity media content to DAM - Frontify Sample
+
+>**IMPORTANT**: This repository may not be compatible with the latest or your current Sitefinity CMS version. If you want to use the repository with a specific Sitefinity CMS version, either upgrade the code from this repository or your Sitefinity CMS project to ensure compatibility.<br/>
+The dev team monitors the repository. You can create a GitHub issue to submit feedback or report bugs. Or make a pull request to submit project enhancements or compatibility changes that support new Sitefinity CMS versions.
+
 This repository contains a sample code to demonstrate how to migrate media content from existing libraries in Sitefinity CMS to a DAM provider.
 The sample implementation is for Frontify but it could be used as reference on how to migrate items to any DAM provider integrated with Sitefinity.
 
